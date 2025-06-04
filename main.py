@@ -11,22 +11,27 @@ FPS = 60
 INITIAL_GAME_SPEED = 20
 POINT_INCREMENT = 0.25
 
+
+# Define path to asset folder
 # Load assets safely
 ASSETS_PATH = os.path.join(os.path.dirname(__file__), "assets")
 
+
+# Load an image with alpha transparency from the assets folder
 def load_image(name):
     return pygame.image.load(os.path.join(ASSETS_PATH, name)).convert_alpha()
 
-# --- Game Class ---
+# --- Main Game Class ---
 class DinoGame:
     def __init__(self):
+        # Initialize Pygame and the game window
         pygame.init()
         pygame.display.set_caption("Dino Game AI")
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont('Arial', 30)
 
-        # Load images
+        # Load images for different entities
         self.RUNNING = [load_image("Dino/DinoRun1.png"), load_image("Dino/DinoRun2.png")]
         self.JUMPING = load_image("Dino/DinoJump.png")
         self.DUCKING = [load_image("Dino/DinoDuck1.png"), load_image("Dino/DinoDuck2.png")]
@@ -40,7 +45,7 @@ class DinoGame:
         self.CLOUD = load_image("Other/Cloud.png")
         self.BG = load_image("Other/Track.png")
 
-        # Game state
+        # Initialize game state
         self.game_speed = INITIAL_GAME_SPEED
         self.points = 0
         self.x_pos_bg = 0
@@ -48,7 +53,9 @@ class DinoGame:
         self.generation = 0
         self.debug = False
         self.obstacles = []
-
+        
+        
+    # Reset game state for a new round
     def reset(self):
         self.game_speed = INITIAL_GAME_SPEED
         self.points = 0
@@ -57,6 +64,8 @@ class DinoGame:
         self.obstacles = []
         self.cloud = Cloud(self)
 
+
+    # Manual (human-controlled) game mode
     def human_play(self):
         self.reset()
         run = True
@@ -95,6 +104,8 @@ class DinoGame:
 
             pygame.display.update()
 
+
+    # Spawn obstacles randomly
     def spawn_obstacles(self):
         if len(self.obstacles) == 0 or (len(self.obstacles) < 2 and random.randint(0, 60) == 0):
             choice = random.randint(0, 2)
@@ -105,6 +116,8 @@ class DinoGame:
             else:
                 self.obstacles.append(Bird(self))
 
+
+    # Initiates NEAT training using the provided config file
     def run_ai_training(self, config_file):
         config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                              neat.DefaultSpeciesSet, neat.DefaultStagnation, config_file)
@@ -114,6 +127,8 @@ class DinoGame:
         winner = population.run(self.eval_genomes, 50)
         return winner
 
+    
+    # Core NEAT loop that evaluates each genome (AI Dino)
     def eval_genomes(self, genomes, config):
         self.generation += 1
         self.nets, self.genomes, self.dinos = [], [], []
@@ -149,6 +164,9 @@ class DinoGame:
                 if obstacle.update(self.game_speed):
                     self.obstacles.remove(obstacle)
 
+            
+            
+            # Evaluate all dinos (AIs)
             survivors, nets, ge = [], [], []
             for dino, net, genome in zip(self.dinos, self.nets, self.genomes):
                 output = net.activate(self.get_ai_inputs(dino))
@@ -171,11 +189,15 @@ class DinoGame:
             self.draw_background()
             draw_score(self.screen, self.points, self.font)
 
+
+            # Draw debug boxes and info
             if self.debug:
                 for dino in self.dinos:
                     pygame.draw.rect(self.screen, (0, 255, 0), dino.dino_rect, 2)
                 for obstacle in self.obstacles:
                     pygame.draw.rect(self.screen, (255, 0, 0), obstacle.rect, 2)
+                    
+                    
             # Show generation and remaining dinos
             gen_text = self.font.render(f"Gen: {self.generation}", True, (0, 0, 0))
             dino_text = self.font.render(f"Dinos: {len(self.dinos)}", True, (0, 0, 0))
@@ -186,6 +208,8 @@ class DinoGame:
 
             pygame.display.update()
 
+
+    # Scrolls the background image for movement illusion
     def draw_background(self):
         self.screen.blit(self.BG, (self.x_pos_bg, 380))
         self.screen.blit(self.BG, (self.x_pos_bg + self.BG.get_width(), 380))
@@ -193,6 +217,8 @@ class DinoGame:
         if self.x_pos_bg <= -self.BG.get_width():
             self.x_pos_bg = 0
 
+    
+    # Return AI inputs: distance to obstacle, size, position, speed
     def get_ai_inputs(self, dino):
         nearest = min((obs for obs in self.obstacles if obs.rect.x > dino.dino_rect.x),
                       default=None, key=lambda obs: obs.rect.x - dino.dino_rect.x)
@@ -207,6 +233,7 @@ class DinoGame:
             self.game_speed / 50
         ]
 
+    # Display menu after death
     def menu(self, score):
         self.screen.fill((255, 255, 255))
         text = self.font.render("Press any key to start" if self.death_count == 0 else "Press any key to restart", True, (0, 0, 0))
@@ -227,6 +254,8 @@ class DinoGame:
                     waiting = False
                     self.main()
 
+
+    # Entry point menu for choosing AI or human mode
     def main(self):
         print("1. Train AI\n2. Play Human\n3. Exit")
         choice = input("Choose mode: ")
